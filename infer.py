@@ -12,12 +12,13 @@ from transformers.models.auto.configuration_auto import AutoConfig
 from transformers.modeling_outputs import BaseModelOutput
 
 from src.utils import load_data_for_inference, prep_strings, postprocess_preds
-ImageFile.LOAD_TRUNCATED_IMAGES = True
 
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 PAD_TOKEN = '!'
 EOS_TOKEN = '.'
 CAPTION_LENGTH = 25
+
 
 def evaluate_norag_model(args, feature_extractor, tokenizer, model, eval_df):
     """Models without retrival augmentation can be evaluated with a batch of length >1."""
@@ -25,28 +26,29 @@ def evaluate_norag_model(args, feature_extractor, tokenizer, model, eval_df):
     bs = args.batch_size
 
     for idx in tqdm(range(0, len(eval_df), bs)):
-        file_names = eval_df['file_name'][idx:idx+bs]
-        image_ids = eval_df['image_id'][idx:idx+bs]
-        decoder_input_ids = [prep_strings('', tokenizer, is_test=True) for _ in range(len(image_ids))] 
-                
+        file_names = eval_df['file_name'][idx:idx + bs]
+        image_ids = eval_df['image_id'][idx:idx + bs]
+        decoder_input_ids = [prep_strings('', tokenizer, is_test=True) for _ in range(len(image_ids))]
+
         # load image 
         images = [Image.open(args.images_dir + file_name).convert("RGB") for file_name in file_names]
         pixel_values = feature_extractor(images, return_tensors="pt").pixel_values
         with torch.no_grad():
-            preds = model.generate(pixel_values.to(args.device), 
-                               decoder_input_ids=torch.tensor(decoder_input_ids).to(args.device),
-                               **args.generation_kwargs)
+            preds = model.generate(pixel_values.to(args.device),
+                                   decoder_input_ids=torch.tensor(decoder_input_ids).to(args.device),
+                                   **args.generation_kwargs)
         preds = tokenizer.batch_decode(preds)
- 
+
         for image_id, pred in zip(image_ids, preds):
             pred = postprocess_preds(pred, tokenizer)
             out.append({"image_id": int(image_id), "caption": pred})
 
     return out
 
+
 def evaluate_rag_model(args, feature_extractor, tokenizer, model, eval_df):
     """RAG models can only be evaluated with a batch of length 1."""
-    
+
     template = open(args.template_path).read().strip() + ' '
 
     if args.features_path is not None:
@@ -58,22 +60,22 @@ def evaluate_rag_model(args, feature_extractor, tokenizer, model, eval_df):
         image_id = eval_df['image_id'][idx]
         caps = eval_df['caps'][idx]
         decoder_input_ids = prep_strings('', tokenizer, template=template, retrieved_caps=caps,
-                                                 k=int(args.k), is_test=True)
+                                         k=int(args.k), is_test=True)
         # load image
         if args.features_path is not None:
             encoder_last_hidden_state = torch.FloatTensor([features[image_id][()]])
             encoder_outputs = BaseModelOutput(last_hidden_state=encoder_last_hidden_state.to(args.device))
             with torch.no_grad():
                 pred = model.generate(encoder_outputs=encoder_outputs,
-                               decoder_input_ids=torch.tensor([decoder_input_ids]).to(args.device),
-                               **args.generation_kwargs)
+                                      decoder_input_ids=torch.tensor([decoder_input_ids]).to(args.device),
+                                      **args.generation_kwargs)
         else:
             image = Image.open(args.images_dir + file_name).convert("RGB")
             pixel_values = feature_extractor(image, return_tensors="pt").pixel_values
             with torch.no_grad():
                 pred = model.generate(pixel_values.to(args.device),
-                               decoder_input_ids=torch.tensor([decoder_input_ids]).to(args.device),
-                               **args.generation_kwargs)
+                                      decoder_input_ids=torch.tensor([decoder_input_ids]).to(args.device),
+                                      **args.generation_kwargs)
         pred = tokenizer.decode(pred[0])
 
         pred = postprocess_preds(pred, tokenizer)
@@ -81,8 +83,8 @@ def evaluate_rag_model(args, feature_extractor, tokenizer, model, eval_df):
 
     return out
 
-def load_model(args, checkpoint_path):
 
+def load_model(args, checkpoint_path):
     config = AutoConfig.from_pretrained(checkpoint_path + '/config.json')
     model = AutoModel.from_pretrained(checkpoint_path)
     model.config = config
@@ -90,11 +92,13 @@ def load_model(args, checkpoint_path):
     model.to(args.device)
     return model
 
+
 def infer_one_checkpoint(args, feature_extractor, tokenizer, checkpoint_path, eval_df, infer_fn):
     model = load_model(args, checkpoint_path)
     preds = infer_fn(args, feature_extractor, tokenizer, model, eval_df)
     with open(os.path.join(checkpoint_path, args.outfile_name), 'w') as outfile:
         json.dump(preds, outfile)
+
 
 def register_model_and_config():
     from transformers import AutoModelForCausalLM
@@ -107,8 +111,8 @@ def register_model_and_config():
     AutoConfig.register("smallcap", SmallCapConfig)
     AutoModel.register(SmallCapConfig, SmallCap)
 
-def main(args):
 
+def main(args):
     register_model_and_config()
 
     args.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -119,7 +123,7 @@ def main(args):
         feature_extractor = CLIPFeatureExtractor.from_pretrained(args.encoder_name)
 
     if args.disable_rag:
-        args.k=0
+        args.k = 0
         infer_fn = evaluate_norag_model
     else:
         infer_fn = evaluate_rag_model
@@ -138,7 +142,7 @@ def main(args):
     tokenizer = AutoTokenizer.from_pretrained(args.decoder_name)
     tokenizer.pad_token = PAD_TOKEN
     tokenizer.eos_token = EOS_TOKEN
-    
+
     # configure generation 
     args.generation_kwargs = {'max_new_tokens': CAPTION_LENGTH, 'no_repeat_ngram_size': 0, 'length_penalty': 0.,
                               'num_beams': 3, 'early_stopping': True, 'eos_token_id': tokenizer.eos_token_id}
@@ -160,7 +164,7 @@ if __name__ == '__main__':
     parser.add_argument("--images_dir", type=str, default="data/images/", help="Directory where input image features are stored")
     parser.add_argument("--features_path", type=str, default=None, help="H5 file with cached input image features")
     parser.add_argument("--annotations_path", type=str, default="data/dataset_coco.json", help="JSON file with annotations in Karpathy splits")
-        
+
     parser.add_argument("--model_path", type=str, default=None, help="Path to model to use for inference")
     parser.add_argument("--checkpoint_path", type=str, default=None, help="Path to checkpoint to use for inference; If not specified, will infer with all checkpoints")
 
@@ -180,4 +184,3 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     main(args)
-   

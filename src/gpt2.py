@@ -26,7 +26,7 @@ from packaging import version
 from torch import nn
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
-from transformers.models.gpt2.modeling_gpt2 import load_tf_weights_in_gpt2, GPT2LMHeadModel, GPT2MLP, GPT2Attention, GPT2Block 
+from transformers.models.gpt2.modeling_gpt2 import load_tf_weights_in_gpt2, GPT2LMHeadModel, GPT2MLP, GPT2Attention, GPT2Block
 
 from transformers.activations import ACT2FN
 from transformers.modeling_outputs import (
@@ -44,23 +44,23 @@ from transformers.utils import (
 from transformers.utils.model_parallel_utils import assert_device_map, get_device_map
 from transformers.models.gpt2.configuration_gpt2 import GPT2Config
 
-
 if version.parse(torch.__version__) >= version.parse("1.6"):
     is_amp_available = True
     from torch.cuda.amp import autocast
 else:
     is_amp_available = False
 
-    
+
 class ThisGPT2Config(GPT2Config):
     model_type = "this_gpt2"
 
     def __init__(
-        self,
-        **kwargs,
+            self,
+            **kwargs,
     ):
         super().__init__(**kwargs)
-        
+
+
 class ThisGPT2Attention(GPT2Attention):
     def __init__(self, config, is_cross_attention=False, layer_idx=None):
         super().__init__(config, is_cross_attention=False, layer_idx=None)
@@ -87,15 +87,15 @@ class ThisGPT2Attention(GPT2Attention):
         self.scale_attn_weights = config.scale_attn_weights
         self.is_cross_attention = is_cross_attention
         self.cross_attention_reduce_factor = config.cross_attention_reduce_factor
-        
+
         # Layer-wise attention scaling, reordering, and upcasting
         self.scale_attn_by_inverse_layer_idx = config.scale_attn_by_inverse_layer_idx
         self.layer_idx = layer_idx
         self.reorder_and_upcast_attn = config.reorder_and_upcast_attn
-               
+
         if self.is_cross_attention:
-            self.c_attn = Conv1D(int(2 / self.cross_attention_reduce_factor * self.embed_dim), 
-                                                                                  config.encoder_hidden_size) 
+            self.c_attn = Conv1D(int(2 / self.cross_attention_reduce_factor * self.embed_dim),
+                                 config.encoder_hidden_size)
             self.q_attn = Conv1D(int(self.embed_dim / self.cross_attention_reduce_factor), self.embed_dim)
             self.c_proj = Conv1D(self.embed_dim, int(self.embed_dim / self.cross_attention_reduce_factor))
         else:
@@ -108,15 +108,15 @@ class ThisGPT2Attention(GPT2Attention):
         self.pruned_heads = set()
 
     def forward(
-        self,
-        hidden_states: Optional[Tuple[torch.FloatTensor]],
-        layer_past: Optional[Tuple[torch.Tensor]] = None,
-        attention_mask: Optional[torch.FloatTensor] = None,
-        head_mask: Optional[torch.FloatTensor] = None,
-        encoder_hidden_states: Optional[torch.Tensor] = None,
-        encoder_attention_mask: Optional[torch.FloatTensor] = None,
-        use_cache: Optional[bool] = False,
-        output_attentions: Optional[bool] = False,
+            self,
+            hidden_states: Optional[Tuple[torch.FloatTensor]],
+            layer_past: Optional[Tuple[torch.Tensor]] = None,
+            attention_mask: Optional[torch.FloatTensor] = None,
+            head_mask: Optional[torch.FloatTensor] = None,
+            encoder_hidden_states: Optional[torch.Tensor] = None,
+            encoder_attention_mask: Optional[torch.FloatTensor] = None,
+            use_cache: Optional[bool] = False,
+            output_attentions: Optional[bool] = False,
     ) -> Tuple[Union[torch.Tensor, Tuple[torch.Tensor]], ...]:
         if encoder_hidden_states is not None:
             if not hasattr(self, "q_attn"):
@@ -136,7 +136,7 @@ class ThisGPT2Attention(GPT2Attention):
             value = self._split_heads(value, self.num_heads, head_dim)
         else:
             query, key, value = self.c_attn(hidden_states).split(self.split_size, dim=2)
-        
+
             query = self._split_heads(query, self.num_heads, self.head_dim)
             key = self._split_heads(key, self.num_heads, self.head_dim)
             value = self._split_heads(value, self.num_heads, self.head_dim)
@@ -155,7 +155,7 @@ class ThisGPT2Attention(GPT2Attention):
             attn_output, attn_weights = self._upcast_and_reordered_attn(query, key, value, attention_mask, head_mask)
         else:
             attn_output, attn_weights = self._attn(query, key, value, attention_mask, head_mask)
-        
+
         attn_output = self._merge_heads(attn_output, self.num_heads, int(self.head_dim / self.cross_attention_reduce_factor))
         attn_output = self.c_proj(attn_output)
         attn_output = self.resid_dropout(attn_output)
@@ -176,7 +176,7 @@ class ThisGPT2Block(GPT2Block):
         self.ln_1 = nn.LayerNorm(hidden_size, eps=config.layer_norm_epsilon)
         self.attn = GPT2Attention(config, layer_idx=layer_idx)
         self.ln_2 = nn.LayerNorm(hidden_size, eps=config.layer_norm_epsilon)
-        
+
         if config.add_cross_attention:
             self.crossattention = ThisGPT2Attention(config, is_cross_attention=True, layer_idx=layer_idx)
             self.ln_cross_attn = nn.LayerNorm(hidden_size, eps=config.layer_norm_epsilon)
@@ -435,20 +435,20 @@ class GPT2Model(GPT2PreTrainedModel):
             self.h[layer].attn.prune_heads(heads)
 
     def forward(
-        self,
-        input_ids: Optional[torch.LongTensor] = None,
-        past_key_values: Optional[Tuple[Tuple[torch.Tensor]]] = None,
-        attention_mask: Optional[torch.FloatTensor] = None,
-        token_type_ids: Optional[torch.LongTensor] = None,
-        position_ids: Optional[torch.LongTensor] = None,
-        head_mask: Optional[torch.FloatTensor] = None,
-        inputs_embeds: Optional[torch.FloatTensor] = None,
-        encoder_hidden_states: Optional[torch.Tensor] = None,
-        encoder_attention_mask: Optional[torch.FloatTensor] = None,
-        use_cache: Optional[bool] = None,
-        output_attentions: Optional[bool] = None,
-        output_hidden_states: Optional[bool] = None,
-        return_dict: Optional[bool] = None,
+            self,
+            input_ids: Optional[torch.LongTensor] = None,
+            past_key_values: Optional[Tuple[Tuple[torch.Tensor]]] = None,
+            attention_mask: Optional[torch.FloatTensor] = None,
+            token_type_ids: Optional[torch.LongTensor] = None,
+            position_ids: Optional[torch.LongTensor] = None,
+            head_mask: Optional[torch.FloatTensor] = None,
+            inputs_embeds: Optional[torch.FloatTensor] = None,
+            encoder_hidden_states: Optional[torch.Tensor] = None,
+            encoder_attention_mask: Optional[torch.FloatTensor] = None,
+            use_cache: Optional[bool] = None,
+            output_attentions: Optional[bool] = None,
+            output_hidden_states: Optional[bool] = None,
+            return_dict: Optional[bool] = None,
     ) -> Union[Tuple, BaseModelOutputWithPastAndCrossAttentions]:
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (
@@ -632,7 +632,7 @@ class GPT2Model(GPT2PreTrainedModel):
 class ThisGPT2LMHeadModel(GPT2LMHeadModel):
     _keys_to_ignore_on_load_missing = [r"attn.masked_bias", r"attn.bias", r"lm_head.weight"]
     config_class = ThisGPT2Config
-    
+
     def __init__(self, config):
         super().__init__(config)
         self.transformer = GPT2Model(config)
@@ -698,21 +698,21 @@ class ThisGPT2LMHeadModel(GPT2LMHeadModel):
         }
 
     def forward(
-        self,
-        input_ids: Optional[torch.LongTensor] = None,
-        past_key_values: Optional[Tuple[Tuple[torch.Tensor]]] = None,
-        attention_mask: Optional[torch.FloatTensor] = None,
-        token_type_ids: Optional[torch.LongTensor] = None,
-        position_ids: Optional[torch.LongTensor] = None,
-        head_mask: Optional[torch.FloatTensor] = None,
-        inputs_embeds: Optional[torch.FloatTensor] = None,
-        encoder_hidden_states: Optional[torch.Tensor] = None,
-        encoder_attention_mask: Optional[torch.FloatTensor] = None,
-        labels: Optional[torch.LongTensor] = None,
-        use_cache: Optional[bool] = None,
-        output_attentions: Optional[bool] = None,
-        output_hidden_states: Optional[bool] = None,
-        return_dict: Optional[bool] = None,
+            self,
+            input_ids: Optional[torch.LongTensor] = None,
+            past_key_values: Optional[Tuple[Tuple[torch.Tensor]]] = None,
+            attention_mask: Optional[torch.FloatTensor] = None,
+            token_type_ids: Optional[torch.LongTensor] = None,
+            position_ids: Optional[torch.LongTensor] = None,
+            head_mask: Optional[torch.FloatTensor] = None,
+            inputs_embeds: Optional[torch.FloatTensor] = None,
+            encoder_hidden_states: Optional[torch.Tensor] = None,
+            encoder_attention_mask: Optional[torch.FloatTensor] = None,
+            labels: Optional[torch.LongTensor] = None,
+            use_cache: Optional[bool] = None,
+            output_attentions: Optional[bool] = None,
+            output_hidden_states: Optional[bool] = None,
+            return_dict: Optional[bool] = None,
     ) -> Union[Tuple, CausalLMOutputWithCrossAttentions]:
         r"""
         labels (`torch.LongTensor` of shape `(batch_size, sequence_length)`, *optional*):
@@ -721,7 +721,7 @@ class ThisGPT2LMHeadModel(GPT2LMHeadModel):
             are ignored (masked), the loss is only computed for labels in `[0, ..., config.vocab_size]`
         """
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        
+
         transformer_outputs = self.transformer(
             input_ids,
             past_key_values=past_key_values,

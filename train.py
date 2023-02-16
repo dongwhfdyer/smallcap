@@ -18,8 +18,8 @@ PAD_TOKEN = '!'
 EOS_TOKEN = '.'
 CAPTION_LENGTH = 25
 
-def get_model_and_auxiliaries(args):
 
+def get_model_and_auxiliaries(args):
     # register model types
     AutoConfig.register("this_gpt2", ThisGPT2Config)
     AutoModel.register(ThisGPT2Config, ThisGPT2LMHeadModel)
@@ -36,22 +36,22 @@ def get_model_and_auxiliaries(args):
     tokenizer.eos_token = EOS_TOKEN
 
     model = SmallCap.from_encoder_decoder_pretrained(args.encoder_name,
-                                                                      args.decoder_name,
-                                                                      cross_attention_reduce_factor=cross_attention_reduce_factor)
+                                                     args.decoder_name,
+                                                     cross_attention_reduce_factor=cross_attention_reduce_factor)
     model.config.vocab_size = model.config.decoder.vocab_size
     model.config.decoder_start_token_id = None
-    model.config.pad_token_id = tokenizer.pad_token_id 
-    model.config.eos_token_id = tokenizer.eos_token_id 
+    model.config.pad_token_id = tokenizer.pad_token_id
+    model.config.eos_token_id = tokenizer.eos_token_id
 
     if not args.disable_rag:
         model.config.k = args.k
-        model.config.retrieval_encoder = args.retrieval_encoder   
-        model.config.max_length = args.k * CAPTION_LENGTH + CAPTION_LENGTH + 18 # there are 18 tokens in the long prefix template    
-    
+        model.config.retrieval_encoder = args.retrieval_encoder
+        model.config.max_length = args.k * CAPTION_LENGTH + CAPTION_LENGTH + 18  # there are 18 tokens in the long prefix template
+
     else:
-        model.config.max_length = CAPTION_LENGTH + 4 # there are 4 tokens in the short prefix template
+        model.config.max_length = CAPTION_LENGTH + 4  # there are 4 tokens in the short prefix template
     model.config.rag = not args.disable_rag
-  
+
     # freeze parameters
     for param in model.encoder.parameters():
         param.requires_grad = False
@@ -67,24 +67,24 @@ def get_model_and_auxiliaries(args):
 
     return model, tokenizer, feature_extractor
 
-def get_data(tokenizer, max_length, args):
 
+def get_data(tokenizer, max_length, args):
     data = load_data_for_training(args.annotations_path, args.captions_path)
     train_df = pd.DataFrame(data['train'])
 
     train_dataset = TrainDataset(
-                           df=train_df,
-                           features_path=os.path.join(args.features_dir,'train.hdf5'),
-                           tokenizer=tokenizer,
-                           rag=not args.disable_rag,
-                           template_path=args.template_path,
-                           k=args.k,
-                           max_target_length=max_length)
+        df=train_df,
+        features_path=os.path.join(args.features_dir, 'train.hdf5'),
+        tokenizer=tokenizer,
+        rag=not args.disable_rag,
+        template_path=args.template_path,
+        k=args.k,
+        max_target_length=max_length)
 
     return train_dataset
 
-def main(args):
 
+def main(args):
     model, tokenizer, feature_extractor = get_model_and_auxiliaries(args)
     train_dataset = get_data(tokenizer, model.config.max_length, args)
 
@@ -92,29 +92,30 @@ def main(args):
     output_dir = '{}_{}M_{}'.format(model_type, args.attention_size, args.decoder_name)
 
     output_dir = os.path.join(args.experiments_dir, output_dir)
-    
+
     training_args = Seq2SeqTrainingArguments(
-        num_train_epochs=args.n_epochs, 
-        per_device_train_batch_size=args.batch_size, 
+        num_train_epochs=args.n_epochs,
+        per_device_train_batch_size=args.batch_size,
         gradient_accumulation_steps=args.gradient_steps,
-        learning_rate = args.lr,
+        learning_rate=args.lr,
         fp16=True,
         save_strategy="epoch",
-        save_total_limit=args.n_epochs, 
-        logging_strategy="epoch", 
-        output_dir=output_dir, 
-        overwrite_output_dir=True, 
+        save_total_limit=args.n_epochs,
+        logging_strategy="epoch",
+        output_dir=output_dir,
+        overwrite_output_dir=True,
     )
 
     trainer = Seq2SeqTrainer(
         model=model,
         args=training_args,
-        data_collator=default_data_collator, 
+        data_collator=default_data_collator,
         train_dataset=train_dataset,
         tokenizer=feature_extractor,
     )
 
     trainer.train()
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Model Training')

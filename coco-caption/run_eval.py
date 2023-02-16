@@ -4,14 +4,15 @@ from pycocoevalcap.eval import COCOEvalCap
 import sys
 import json
 from json import encoder
+
 encoder.FLOAT_REPR = lambda o: format(o, '.3f')
 
 # set up file names and pathes
-dataDir='coco-caption'
-#dataType = sys.argv[1]
+dataDir = 'coco-caption'
+# dataType = sys.argv[1]
 algName = 'fakecap'
-annFile=sys.argv[1]#'%s/annotations/captions_%sKarpathy.json'%(dataDir,dataType)
-subtypes=['results', 'evalImgs', 'eval']
+annFile = sys.argv[1]  # '%s/annotations/captions_%sKarpathy.json'%(dataDir,dataType)
+subtypes = ['results', 'evalImgs', 'eval']
 resFile = sys.argv[2]
 
 coco = COCO(annFile)
@@ -32,5 +33,5 @@ outfile = resFile.replace('preds', 'res')
 outfile = outfile.replace('json', 'txt')
 
 with open(outfile, 'w') as outfile:
-  for metric, score in cocoEval.eval.items():
-    outfile.write( '%s: %.2f\n'%(metric, score*100) )
+    for metric, score in cocoEval.eval.items():
+        outfile.write('%s: %.2f\n' % (metric, score * 100))

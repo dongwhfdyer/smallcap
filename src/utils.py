@@ -8,13 +8,13 @@ import bisect
 CAPTION_LENGTH = 25
 SIMPLE_PREFIX = "This image shows "
 
-def prep_strings(text, tokenizer, template=None, retrieved_caps=None, k=None, is_test=False, max_length=None):
 
+def prep_strings(text, tokenizer, template=None, retrieved_caps=None, k=None, is_test=False, max_length=None):
     if is_test:
         padding = False
         truncation = False
     else:
-        padding = True 
+        padding = True
         truncation = True
 
     if retrieved_caps is not None:
@@ -30,17 +30,18 @@ def prep_strings(text, tokenizer, template=None, retrieved_caps=None, k=None, is
     if truncation:
         text_ids = text_ids[:CAPTION_LENGTH]
     input_ids = prefix_ids + text_ids if not is_test else prefix_ids
-    
+
     # we ignore the prefix (minus one as the first subtoken in the prefix is not predicted)
-    label_ids = [-100] * (len_prefix - 1) + text_ids + [tokenizer.eos_token_id] 
+    label_ids = [-100] * (len_prefix - 1) + text_ids + [tokenizer.eos_token_id]
     if padding:
         input_ids += [tokenizer.pad_token_id] * (max_length - len(input_ids))
         label_ids += [-100] * (max_length - len(label_ids))
-    
+
     if is_test:
         return input_ids
-    else:  
+    else:
         return input_ids, label_ids
+
 
 def postprocess_preds(pred, tokenizer):
     pred = pred.split(SIMPLE_PREFIX)[-1]
@@ -49,16 +50,17 @@ def postprocess_preds(pred, tokenizer):
         pred = pred[:-1]
     return pred
 
+
 class TrainDataset(Dataset):
     def __init__(self, df, features_path, tokenizer, rag=False, template_path=None, k=None, max_target_length=150):
         self.df = df
         self.tokenizer = tokenizer
-        self.max_target_length = max_target_length 
+        self.max_target_length = max_target_length
         self.features = h5py.File(features_path, 'r')
 
         if rag:
             self.template = open(template_path).read().strip() + ' '
-            assert k is not None 
+            assert k is not None
             self.k = k
         self.rag = rag
 
@@ -67,7 +69,7 @@ class TrainDataset(Dataset):
 
     def __getitem__(self, idx):
         text = self.df['text'][idx]
-        if self.rag: 
+        if self.rag:
             caps = self.df['caps'][idx]
             decoder_input_ids, labels = prep_strings(text, self.tokenizer, template=self.template,
                                                      retrieved_caps=caps, k=self.k, max_length=self.max_target_length)
@@ -75,7 +77,7 @@ class TrainDataset(Dataset):
             decoder_input_ids, labels = prep_strings(text, self.tokenizer, max_length=self.max_target_length)
         # load precomputed features
         encoder_outputs = self.features[self.df['cocoid'][idx]][()]
-        encoding = {"encoder_outputs": torch.tensor(encoder_outputs), 
+        encoding = {"encoder_outputs": torch.tensor(encoder_outputs),
                     "decoder_input_ids": torch.tensor(decoder_input_ids),
                     "labels": torch.tensor(labels)}
 
@@ -101,7 +103,8 @@ def load_data_for_training(annot_path, caps_path=None):
             data['train'] += samples
         elif item['split'] == 'val':
             data['val'] += samples
-    return data 
+    return data
+
 
 def load_data_for_inference(annot_path, caps_path=None):
     annotations = json.load(open(annot_path))['images']
@@ -121,5 +124,4 @@ def load_data_for_inference(annot_path, caps_path=None):
         elif item['split'] == 'val':
             data['val'].append(image)
 
-    return data      
-
+    return data
