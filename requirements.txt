@@ -8,8 +8,5 @@ pyarrow==9.0.0
 pyparsing==3.0.9
 PyYAML==6.0
 tokenizers==0.12.1
-torch==1.12.1
-torchaudio==0.12.1
-torchvision==0.13.1
 tqdm==4.64.0
 transformers==4.21.1

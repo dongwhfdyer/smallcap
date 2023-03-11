@@ -1,3 +1,9 @@
+# Kuhn notes
+
+![image-20230310085640649](image-20230310085640649.png)
+
+
+
 # SmallCap
 
 ## Dependencies
@@ -86,7 +92,6 @@ Note: You can safely ignore the warning `Some weights of ThisGPT2LMHeadModel wer
 
 ```python coco-caption/run_eval.py <GOLD_ANN_PATH> <PREDICTIONS_PATH>```
 </details>
-
 
 
 

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from torch.utils.data import Dataset
 from PIL import Image
 import torch
@@ -8,6 +10,8 @@ import bisect
 CAPTION_LENGTH = 25
 SIMPLE_PREFIX = "This image shows "
 
+import os
+
 
 def prep_strings(text, tokenizer, template=None, retrieved_caps=None, k=None, is_test=False, max_length=None):
     if is_test:
@@ -17,7 +21,7 @@ def prep_strings(text, tokenizer, template=None, retrieved_caps=None, k=None, is
         padding = True
         truncation = True
 
-    if retrieved_caps is not None:
+    if retrieved_caps is not None:  # It's the part where retrieve_caps are used
         infix = '\n\n'.join(retrieved_caps[:k]) + '.'
         prefix = template.replace('||', infix)
     else:
@@ -36,6 +40,7 @@ def prep_strings(text, tokenizer, template=None, retrieved_caps=None, k=None, is
     if padding:
         input_ids += [tokenizer.pad_token_id] * (max_length - len(input_ids))
         label_ids += [-100] * (max_length - len(label_ids))
+    # here len(input_ids) == len(label_ids)
 
     if is_test:
         return input_ids
@@ -84,7 +89,7 @@ class TrainDataset(Dataset):
         return encoding
 
 
-def load_data_for_training(annot_path, caps_path=None):
+def load_data_for_training_v1(annot_path, caps_path=None):
     annotations = json.load(open(annot_path))['images']
     if caps_path is not None:
         retrieved_caps = json.load(open(caps_path))
@@ -104,6 +109,42 @@ def load_data_for_training(annot_path, caps_path=None):
         elif item['split'] == 'val':
             data['val'] += samples
     return data
+
+
+def load_data_for_training_v2(annot_path, caps_path):
+    annotations = json.load(open(annot_path))['images']
+
+    retrieved_caps_handler = h5py.File(caps_path, 'r')
+
+    data = {'train': [], 'val': []}
+
+    if not os.path.exists('data/train.json'):
+        for item in annotations:
+            file_name = item['filename'].split('_')[-1][:-4]
+            caps = retrieved_caps_handler[file_name]['nine']['texts'][()]
+            caps = [str(cap[0]).replace('b', '').replace("'", '') for cap in caps]
+            samples = []
+            for sentence in item['sentences']:
+                samples.append({'file_name': file_name, 'cocoid': str(item['cocoid']), 'caps': caps, 'text': ' '.join(sentence['tokens'])})
+            if item['split'] == 'train' or item['split'] == 'restval':
+                data['train'] += samples
+            elif item['split'] == 'val':
+                data['val'] += samples
+
+        # put data to json
+        with open('data/train.json', 'w') as f:
+            json.dump(data, f)
+
+        retrieved_caps_handler.close()
+
+        return data
+    else:
+        with open('data/train.json', 'r') as f:
+            data = json.load(f)
+
+        retrieved_caps_handler.close()
+
+        return data
 
 
 def load_data_for_inference(annot_path, caps_path=None):

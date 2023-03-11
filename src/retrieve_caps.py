@@ -1,4 +1,6 @@
 import json
+from pathlib import Path
+
 from tqdm import tqdm
 from transformers import AutoTokenizer
 import clip
@@ -8,6 +10,26 @@ import os
 import numpy as np
 from PIL import Image
 from PIL import ImageFile
+
+
+def load_huggingface_model(model_class, model_name, local_file, **kwargs):
+    if os.path.exists(local_file):
+        print(f"Loading {model_class} from local file {local_file}")
+        model = model_class.from_pretrained(local_file)
+    else:
+        print(f"Loading {model_class} from huggingface model {model_name}")
+        model = model_class.from_pretrained(model_name)
+        model.save_pretrained(local_file)
+        Path(local_file).parent.mkdir(parents=True, exist_ok=True)
+        print(f"Saved {model_class} to local file {local_file}")
+    if kwargs.get("return_tokenizer", None) == True:
+        return model.tokenizer
+    elif kwargs.get("return_feature_extractor", None) == True:
+        return model.feature_extractor
+    elif kwargs.get("return_vision_model", None) == True:
+        return model.vision_model
+    return model
+
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -29,9 +51,9 @@ def load_coco_data(coco_data_path):
     return images, captions
 
 
-def filter_captions(data):
+def filter_captions(data, tokenizer):
     decoder_name = 'gpt2'
-    tokenizer = AutoTokenizer.from_pretrained(decoder_name)
+    # tokenizer = AutoTokenizer.from_pretrained(decoder_name)
     bs = 512
 
     image_ids = [d['image_id'] for d in data]
@@ -100,9 +122,9 @@ def filter_nns(nns, xb_image_ids, captions, xq_image_ids):
     for nns_list, image_id in zip(nns, xq_image_ids):
         good_nns = []
         for nn in zip(nns_list):
-            if xb_image_ids[nn] == image_id:
+            if xb_image_ids[nn[0]] == image_id:
                 continue
-            good_nns.append(captions[nn])
+            good_nns.append(captions[nn[0]])
             if len(good_nns) == 7:
                 break
         assert len(good_nns) == 7
@@ -116,12 +138,14 @@ def main():
 
     print('Loading data')
     images, captions = load_coco_data(coco_data_path)
+    decoder_name = 'gpt2'
+    tokenizer = load_huggingface_model(AutoTokenizer, decoder_name, ".cache/gpt2_tokenizer.pt")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     clip_model, feature_extractor = clip.load("RN50x64", device=device)
 
     print('Filtering captions')
-    xb_image_ids, captions = filter_captions(captions)
+    xb_image_ids, captions = filter_captions(captions, tokenizer)
 
     print('Encoding captions')
     encoded_captions = encode_captions(captions, clip_model, device)
