@@ -51,9 +51,9 @@ def load_coco_data(coco_data_path):
     return images, captions
 
 
-def filter_captions(data, tokenizer):
+def filter_captions(data):
     decoder_name = 'gpt2'
-    # tokenizer = AutoTokenizer.from_pretrained(decoder_name)
+    tokenizer = AutoTokenizer.from_pretrained(decoder_name)
     bs = 512
 
     image_ids = [d['image_id'] for d in data]
@@ -61,7 +61,7 @@ def filter_captions(data, tokenizer):
     encodings = []
     for idx in range(0, len(data), bs):
         encodings += tokenizer.batch_encode_plus(caps[idx:idx + bs], return_tensors='np')['input_ids'].tolist()
-
+    testttt = tokenizer.batch_encode_plus(caps[idx:idx + bs], return_tensors='np')
     filtered_image_ids, filtered_captions = [], []
 
     assert len(image_ids) == len(caps) and len(caps) == len(encodings)
@@ -139,13 +139,13 @@ def main():
     print('Loading data')
     images, captions = load_coco_data(coco_data_path)
     decoder_name = 'gpt2'
-    tokenizer = load_huggingface_model(AutoTokenizer, decoder_name, ".cache/gpt2_tokenizer.pt")
+    # tokenizer = load_huggingface_model(AutoTokenizer, decoder_name, ".cache/gpt2_tokenizer.pt")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     clip_model, feature_extractor = clip.load("RN50x64", device=device)
 
     print('Filtering captions')
-    xb_image_ids, captions = filter_captions(captions, tokenizer)
+    xb_image_ids, captions = filter_captions(captions)
 
     print('Encoding captions')
     encoded_captions = encode_captions(captions, clip_model, device)

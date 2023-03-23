@@ -166,3 +166,36 @@ def load_data_for_inference(annot_path, caps_path=None):
             data['val'].append(image)
 
     return data
+
+
+def load_data_for_inference_v2(annot_path, caps_path=None):
+    annotations = json.load(open(annot_path))['images']
+
+    retrieved_caps_handler = h5py.File(caps_path, 'r')
+
+    data = {'test': [], 'val': []}
+
+    if not os.path.exists('data/test.json'):
+        for item in annotations:
+            file_name = item['filename'].split('_')[-1][:-4]
+            caps = retrieved_caps_handler[file_name]['nine']['texts'][()]
+            caps = [str(cap[0]).replace('b', '').replace("'", '') for cap in caps]
+            image = {'file_name': file_name, 'caps': caps, 'image_id': str(item['cocoid'])}
+            if item['split'] == 'test':
+                data['test'].append(image)
+            elif item['split'] == 'val':
+                data['val'].append(image)
+
+        # put data to json
+        with open('data/test.json', 'w') as f:
+            json.dump(data, f)
+
+        retrieved_caps_handler.close()
+
+    else:
+        with open('data/test.json', 'r') as f:
+            data = json.load(f)
+
+        retrieved_caps_handler.close()
+
+        return data

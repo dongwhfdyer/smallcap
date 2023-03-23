@@ -84,6 +84,9 @@ def get_data(tokenizer, max_length, args):
 
     return train_dataset
 
+# class myTrainer(Seq2SeqTrainer):
+#     def eva
+
 
 def main(args):
     model, tokenizer, feature_extractor = get_model_and_auxiliaries(args)

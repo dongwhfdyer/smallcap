@@ -11,7 +11,7 @@ from transformers import AutoTokenizer, CLIPFeatureExtractor, AutoModel
 from transformers.models.auto.configuration_auto import AutoConfig
 from transformers.modeling_outputs import BaseModelOutput
 
-from src.utils import load_data_for_inference, prep_strings, postprocess_preds
+from src.utils import load_data_for_inference, prep_strings, postprocess_preds, load_data_for_inference_v2
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -56,7 +56,7 @@ def evaluate_rag_model(args, feature_extractor, tokenizer, model, eval_df):
 
     out = []
     for idx in tqdm(range(len(eval_df))):
-        file_name = eval_df['file_name'][idx]
+        file_name = eval_df['file_name'][idx] + '.jpg' # todo: 9 blocks'version added '.jpg'
         image_id = eval_df['image_id'][idx]
         caps = eval_df['caps'][idx]
         decoder_input_ids = prep_strings('', tokenizer, template=template, retrieved_caps=caps,
@@ -133,7 +133,7 @@ def main(args):
     else:
         split = 'val'
 
-    data = load_data_for_inference(args.annotations_path, args.captions_path)
+    data = load_data_for_inference_v2(args.annotations_path, args.retrieved_caps_path)
 
     eval_df = pd.DataFrame(data[split])
     args.outfile_name = '{}_preds.json'.format(split)
@@ -181,6 +181,11 @@ if __name__ == '__main__':
 
     parser.add_argument("--batch_size", type=int, default=64, help="Batch size; only matter if evaluating a norag model")
 
+    parser.add_argument("--retrieved_caps_path", type=str, default="data/coco2017_crop_caps.hdf5")
+
+
     args = parser.parse_args()
 
     main(args)
+
+    # python infer.py --model_path experiments/rag_7M_gpt2 --checkpoint_path checkpoint-44280 --infer_test
