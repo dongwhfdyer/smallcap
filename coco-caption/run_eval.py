@@ -36,4 +36,5 @@ with open(outfile, 'w') as outfile:
     for metric, score in cocoEval.eval.items():
         outfile.write('%s: %.2f\n' % (metric, score * 100))
 
-# python coco-caption/run_eval.py coco-caption/annotations/captions_testKarpathy.json experiments/rag_7M_gpt2/checkpoint-44280/test_preds.json
+# python coco_caption/run_eval.py coco-caption/annotations/captions_testKarpathy.json experiments/rag_7M_gpt2/checkpoint-44280/test_preds.json
+# python coco_caption/run_eval.py coco-caption/annotations/captions_testKarpathy.json experiments/rag_7M_gpt2/checkpoint-132840/test_preds.json

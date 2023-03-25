@@ -10,3 +10,7 @@ PyYAML==6.0
 tokenizers==0.12.1
 tqdm==4.64.0
 transformers==4.21.1
+gensim
+matplotlib
+scikit-image
+pot

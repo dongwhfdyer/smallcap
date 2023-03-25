@@ -56,7 +56,7 @@ def evaluate_rag_model(args, feature_extractor, tokenizer, model, eval_df):
 
     out = []
     for idx in tqdm(range(len(eval_df))):
-        file_name = eval_df['file_name'][idx] + '.jpg' # todo: 9 blocks'version added '.jpg'
+        file_name = eval_df['file_name'][idx] + '.jpg'  # todo: 9 blocks'version added '.jpg'
         image_id = eval_df['image_id'][idx]
         caps = eval_df['caps'][idx]
         decoder_input_ids = prep_strings('', tokenizer, template=template, retrieved_caps=caps,
@@ -183,9 +183,10 @@ if __name__ == '__main__':
 
     parser.add_argument("--retrieved_caps_path", type=str, default="data/coco2017_crop_caps.hdf5")
 
-
     args = parser.parse_args()
 
     main(args)
 
     # python infer.py --model_path experiments/rag_7M_gpt2 --checkpoint_path checkpoint-44280 --infer_test
+    # 13280 is run for 15 epoches
+    # python infer.py --model_path experiments/rag_7M_gpt2 --checkpoint_path checkpoint-132840 --infer_test
