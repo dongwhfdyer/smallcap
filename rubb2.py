@@ -1,71 +1,30 @@
-import nltk
-from datasets import load_dataset
-import evaluate
-import numpy as np
-from transformers import AutoTokenizer, DataCollatorForSeq2Seq
-from transformers import AutoModelForSeq2SeqLM, Seq2SeqTrainingArguments, Seq2SeqTrainer
+from pathlib import Path
 
-# Prepare and tokenize dataset
-billsum = load_dataset("billsum", split="ca_test").shuffle(seed=42).select(range(200))
-billsum = billsum.train_test_split(test_size=0.2)
-tokenizer = AutoTokenizer.from_pretrained("t5-small")
-prefix = "summarize: "
+from transformers import AutoModelForCausalLM, PreTrainedModel, AutoConfig, AutoModel
 
-def preprocess_function(examples):
-    inputs = [prefix + doc for doc in examples["text"]]
-    model_inputs = tokenizer(inputs, max_length=1024, truncation=True)
+# model = PreTrainedModel.from_pretrained("experiments/rag_7M_gpt2/checkpoint-22140")
+from src.vision_encoder_decoder import SmallCapConfig
 
-    labels = tokenizer(text_target=examples["summary"], max_length=128, truncation=True)
+checkpoint_path = Path("experiments/rag_7M_gpt2/checkpoint-19926")
 
-    model_inputs["labels"] = labels["input_ids"]
-    return model_inputs
+# checkpoint_path = Path("experiments/rag_7M_gpt2/checkpoint-22140")
+def register_model_and_config():
+    from transformers import AutoModelForCausalLM
+    from src.vision_encoder_decoder import SmallCap, SmallCapConfig
+    from src.gpt2 import ThisGPT2Config, ThisGPT2LMHeadModel
 
-tokenized_billsum = billsum.map(preprocess_function, batched=True)
+    AutoConfig.register("this_gpt2", ThisGPT2Config)
+    AutoModel.register(ThisGPT2Config, ThisGPT2LMHeadModel)
+    AutoModelForCausalLM.register(ThisGPT2Config, ThisGPT2LMHeadModel)
+    AutoConfig.register("smallcap", SmallCapConfig)
+    AutoModel.register(SmallCapConfig, SmallCap)
+register_model_and_config()
+config = AutoConfig.from_pretrained(checkpoint_path / 'config.json')
+model = AutoModel.from_pretrained(checkpoint_path)
+model.config = config
+model.eval()
+# from src.vision_encoder_decoder import SmallCap
 
-# Setup evaluation
-nltk.download("punkt", quiet=True)
-metric = evaluate.load("rouge")
+# smallcap = SmallCap(checkpoint_path / 'config.json')
 
-def compute_metrics(eval_preds):
-    preds, labels = eval_preds
-
-    # decode preds and labels
-    labels = np.where(labels != -100, labels, tokenizer.pad_token_id)
-    decoded_preds = tokenizer.batch_decode(preds, skip_special_tokens=True)
-    decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
-
-    # rougeLSum expects newline after each sentence
-    decoded_preds = ["\n".join(nltk.sent_tokenize(pred.strip())) for pred in decoded_preds]
-    decoded_labels = ["\n".join(nltk.sent_tokenize(label.strip())) for label in decoded_labels]
-
-    result = metric.compute(predictions=decoded_preds, references=decoded_labels, use_stemmer=True)
-    return result
-
-# Load pretrained model and evaluate model after each epoch
-model = AutoModelForSeq2SeqLM.from_pretrained("t5-small")
-data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model)
-
-training_args = Seq2SeqTrainingArguments(
-    output_dir="./results",
-    evaluation_strategy="epoch",
-    learning_rate=2e-5,
-    per_device_train_batch_size=16,
-    per_device_eval_batch_size=4,
-    weight_decay=0.01,
-    save_total_limit=3,
-    num_train_epochs=2,
-    fp16=True,
-    predict_with_generate=True
-)
-
-trainer = Seq2SeqTrainer(
-    model=model,
-    args=training_args,
-    train_dataset=tokenized_billsum["train"],
-    eval_dataset=tokenized_billsum["test"],
-    tokenizer=tokenizer,
-    data_collator=data_collator,
-    compute_metrics=compute_metrics
-)
-
-trainer.train()
+print("--------------------------------------------------")

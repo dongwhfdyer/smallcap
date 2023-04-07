@@ -11,7 +11,7 @@ from transformers import AutoTokenizer, CLIPFeatureExtractor, AutoModel
 from transformers.models.auto.configuration_auto import AutoConfig
 from transformers.modeling_outputs import BaseModelOutput
 
-from src.utils import load_data_for_inference, prep_strings, postprocess_preds, load_data_for_inference_v2
+from src.utils import load_data_for_inference, prep_strings, postprocess_preds, load_data_for_inference_v2, load_huggingface_model
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -63,9 +63,10 @@ def evaluate_rag_model(args, feature_extractor, tokenizer, model, eval_df):
                                          k=int(args.k), is_test=True)
         # load image
         if args.features_path is not None:
-            encoder_last_hidden_state = torch.FloatTensor([features[image_id][()]])
-            encoder_outputs = BaseModelOutput(last_hidden_state=encoder_last_hidden_state.to(args.device))
+            encoder_last_hidden_state = torch.FloatTensor([features[image_id.zfill(12)]["final_out"][()].squeeze()])  # it's for CDN's features
+            # encoder_last_hidden_state = torch.FloatTensor([features[image_id][()]]) # it's the original retrieval methods for clip vision encoder's features
             with torch.no_grad():
+                encoder_outputs = BaseModelOutput(last_hidden_state=encoder_last_hidden_state.to(args.device))
                 pred = model.generate(encoder_outputs=encoder_outputs,
                                       decoder_input_ids=torch.tensor([decoder_input_ids]).to(args.device),
                                       **args.generation_kwargs)
@@ -120,7 +121,8 @@ def main(args):
     if args.features_path is not None:
         feature_extractor = None
     else:
-        feature_extractor = CLIPFeatureExtractor.from_pretrained(args.encoder_name)
+        # feature_extractor = CLIPFeatureExtractor.from_pretrained(args.encoder_name)
+        feature_extractor = load_huggingface_model(CLIPFeatureExtractor, args.encoder_name, '.cache/CLIPFeatureExtractor.pt')
 
     if args.disable_rag:
         args.k = 0
@@ -133,13 +135,15 @@ def main(args):
     else:
         split = 'val'
 
-    data = load_data_for_inference_v2(args.annotations_path, args.retrieved_caps_path)
+    data = load_data_for_inference(args.annotations_path, args.captions_path)
+    # data = load_data_for_inference_v2(args.annotations_path, args.retrieved_caps_path)
 
     eval_df = pd.DataFrame(data[split])
     args.outfile_name = '{}_preds.json'.format(split)
 
     # load and configure tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(args.decoder_name)
+    # tokenizer = AutoTokenizer.from_pretrained(args.decoder_name)
+    tokenizer = load_huggingface_model(AutoTokenizer, args.decoder_name, '.cache/AutoTokenizer.pt')
     tokenizer.pad_token = PAD_TOKEN
     tokenizer.eos_token = EOS_TOKEN
 
@@ -190,3 +194,6 @@ if __name__ == '__main__':
     # python infer.py --model_path experiments/rag_7M_gpt2 --checkpoint_path checkpoint-44280 --infer_test
     # 13280 is run for 15 epoches
     # python infer.py --model_path experiments/rag_7M_gpt2 --checkpoint_path checkpoint-132840 --infer_test
+
+    # python infer.py --model_path experiments/rag_7M_gpt2 --checkpoint_path checkpoint-22140 --infer_test --features_path features/coco_cdn.hdf5
+    # python infer.py --model_path experiments/rag_7M_gpt2/checkpoint-22140 --checkpoint_path checkpoint-44280 --infer_test --features_path features/coco_cdn.hdf5

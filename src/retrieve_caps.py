@@ -52,16 +52,32 @@ def load_coco_data(coco_data_path):
 
 
 def filter_captions(data):
-    decoder_name = 'gpt2'
+    decoder_name = '.cache/gpt2'
     tokenizer = AutoTokenizer.from_pretrained(decoder_name)
     bs = 512
 
     image_ids = [d['image_id'] for d in data]
     caps = [d['caption'] for d in data]
+    # find the maximum length of the captions
+    # max_len = 0
+    # for cap in caps:
+    #     input_ids = tokenizer.encode(cap, return_tensors='pt')
+    #     if max_len < len(input_ids[0]):
+    #         max_len = len(input_ids[0])
+
     encodings = []
+    # for idx in range(0, len(data), bs):
+    #     encodings += tokenizer.batch_encode_plus(caps[idx:idx + bs], return_tensors='np', padding= 'max_length', max_length=56)['input_ids'].tolist()
+
     for idx in range(0, len(data), bs):
-        encodings += tokenizer.batch_encode_plus(caps[idx:idx + bs], return_tensors='np')['input_ids'].tolist()
-    testttt = tokenizer.batch_encode_plus(caps[idx:idx + bs], return_tensors='np')
+        # just using the `tokenizer.encode` method here
+        sub_encodings = []
+        for cap in caps[idx:idx + bs]:
+            input_ids = tokenizer.encode(cap, return_tensors='np')
+            sub_encodings.append(input_ids[0])
+        encodings += sub_encodings
+
+    # testttt = tokenizer.batch_encode_plus(caps[idx:idx + bs], return_tensors='np')
     filtered_image_ids, filtered_captions = [], []
 
     assert len(image_ids) == len(caps) and len(caps) == len(encodings)

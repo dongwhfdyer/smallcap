@@ -19,7 +19,7 @@ from typing import Optional
 
 import torch
 from torch import nn
-from torch.nn import CrossEntropyLoss
+from torch.nn import CrossEntropyLoss, init
 from transformers.configuration_utils import PretrainedConfig
 from transformers.modeling_outputs import BaseModelOutput, Seq2SeqLMOutput
 from transformers.modeling_utils import PreTrainedModel
@@ -32,8 +32,10 @@ from transformers.models.vision_encoder_decoder.configuration_vision_encoder_dec
 from .gpt2 import ThisGPT2LMHeadModel
 from .gpt2 import ThisGPT2Config
 
-
 # Copied from transformers.models.encoder_decoder.modeling_encoder_decoder.shift_tokens_right
+from .utils import load_huggingface_model
+
+
 def shift_tokens_right(input_ids: torch.Tensor, pad_token_id: int, decoder_start_token_id: int):
     """
     Shift input ids one token to the right.
@@ -208,6 +210,10 @@ class SmallCap(PreTrainedModel):
         self.encoder = encoder.vision_model
         self.encoder.main_input_name = 'pixel_values'
         self.decoder = decoder
+        self.linear1024to768 = nn.Linear(1024, 768)
+        # init.xavier_uniform_(self.linear1024to768.weight)
+        # init.constant_(self.linear1024to768.bias, 0.0)
+        # self.relu = nn.ReLU()
 
         # make sure that the individual model's config refers to the shared config
         # so that the updates to the config will be synced
@@ -334,9 +340,8 @@ class SmallCap(PreTrainedModel):
                 )
 
             if "config" not in kwargs_encoder:
-                encoder_config, kwargs_encoder = AutoConfig.from_pretrained(
-                    encoder_pretrained_model_name_or_path, **kwargs_encoder, return_unused_kwargs=True
-                )
+                encoder_config, kwargs_encoder = AutoConfig.from_pretrained(".cache/clip-vit-base-patch32", **kwargs_encoder, return_unused_kwargs=True)
+                # encoder_config, kwargs_encoder = AutoConfig.from_pretrained(encoder_pretrained_model_name_or_path, **kwargs_encoder, return_unused_kwargs=True)
 
                 if encoder_config.is_decoder is True or encoder_config.add_cross_attention is True:
                     logger.info(
@@ -348,7 +353,8 @@ class SmallCap(PreTrainedModel):
 
                 kwargs_encoder["config"] = encoder_config
 
-            encoder = AutoModel.from_pretrained(encoder_pretrained_model_name_or_path, *model_args, **kwargs_encoder)
+            # encoder = AutoModel.from_pretrained(encoder_pretrained_model_name_or_path, *model_args, **kwargs_encoder)
+            encoder = load_huggingface_model(AutoModel, encoder_pretrained_model_name_or_path, ".cache/smallcap_encoder.pt", *model_args, **kwargs_encoder)
 
         decoder = kwargs_decoder.pop("model", None)
         if decoder is None:
@@ -359,10 +365,8 @@ class SmallCap(PreTrainedModel):
                 )
 
             if "config" not in kwargs_decoder:
-                decoder_config, kwargs_decoder = ThisGPT2Config.from_pretrained(
-                    decoder_pretrained_model_name_or_path, **kwargs_decoder, return_unused_kwargs=True
-                )
-
+                # decoder_config, kwargs_decoder = ThisGPT2Config.from_pretrained(decoder_pretrained_model_name_or_path, **kwargs_decoder, return_unused_kwargs=True)
+                decoder_config, kwargs_decoder = ThisGPT2Config.from_pretrained(".cache/gpt2", **kwargs_decoder, return_unused_kwargs=True)
                 if decoder_config.is_decoder is False or decoder_config.add_cross_attention is False:
                     logger.info(
                         f"Initializing {decoder_pretrained_model_name_or_path} as a decoder model. Cross attention"
@@ -384,8 +388,8 @@ class SmallCap(PreTrainedModel):
                     "`decoder_config` to `.from_encoder_decoder_pretrained(...)`"
                 )
 
-            # decoder = AutoModelForCausalLM.from_pretrained(decoder_pretrained_model_name_or_path, **kwargs_decoder)
-            decoder = ThisGPT2LMHeadModel.from_pretrained(decoder_pretrained_model_name_or_path, **kwargs_decoder)
+            # decoder = ThisGPT2LMHeadModel.from_pretrained(decoder_pretrained_model_name_or_path, **kwargs_decoder)
+            decoder = load_huggingface_model(ThisGPT2LMHeadModel, decoder_pretrained_model_name_or_path, ".cache/smallcap_decoder.pt", *model_args, **kwargs_decoder)
         # instantiate config with corresponding kwargs
         config = SmallCapConfig.from_encoder_decoder_configs(encoder.config, decoder.config, **kwargs)
 
@@ -473,6 +477,8 @@ class SmallCap(PreTrainedModel):
             decoder_input_ids = shift_tokens_right(
                 labels, self.config.pad_token_id, self.config.decoder_start_token_id
             )
+        encoder_hidden_states = self.linear1024to768(encoder_hidden_states)
+        # encoder_hidden_states = self.relu(encoder_hidden_states)
 
         # Decode
         decoder_outputs = self.decoder(

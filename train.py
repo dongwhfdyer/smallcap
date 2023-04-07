@@ -1,3 +1,6 @@
+import subprocess
+import time
+
 import pandas as pd
 import numpy as np
 import os
@@ -5,7 +8,7 @@ import argparse
 import torch
 import torchvision
 from transformers.models.auto.configuration_auto import AutoConfig
-from transformers import AutoTokenizer, CLIPFeatureExtractor, AutoModel, AutoModelForCausalLM
+from transformers import AutoTokenizer, CLIPFeatureExtractor, AutoModel, AutoModelForCausalLM, TrainingArguments, TrainerState, TrainerControl
 from transformers import Seq2SeqTrainer, default_data_collator, Seq2SeqTrainingArguments
 
 from src.vision_encoder_decoder import SmallCap, SmallCapConfig
@@ -19,6 +22,27 @@ PAD_TOKEN = '!'
 EOS_TOKEN = '.'
 CAPTION_LENGTH = 25
 
+from transformers import TrainerCallback
+
+
+class InferenceCallback(TrainerCallback):
+    # def on_epoch_end(self, args, state, control, **kwargs):
+    #     saved_one = state.global_step
+    #     print("saved one: ", saved_one)
+    #     subprocess.run(["bash", "infer_eval.sh", str(saved_one)])
+
+    def on_save(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
+        saved_one = state.global_step
+        print("saved one: ", saved_one)
+        subprocess.run(["bash", "infer_eval.sh", str(saved_one)])
+
+    # def on_step_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
+    #     pass
+    pass
+
+
+# class smallcapTrainer(Seq2SeqTrainer):
+
 
 def get_model_and_auxiliaries(args):
     # register model types
@@ -31,8 +55,8 @@ def get_model_and_auxiliaries(args):
     # create and configure model
     cross_attention_reduce_factor = PARAMS2REDUCE_FACTOR[args.attention_size]
 
-    feature_extractor = CLIPFeatureExtractor.from_pretrained(args.encoder_name)
-    tokenizer = AutoTokenizer.from_pretrained(args.decoder_name)
+    feature_extractor = load_huggingface_model(CLIPFeatureExtractor, args.encoder_name, ".cache/CLIPFeatureExtractor.pt")
+    tokenizer = load_huggingface_model(AutoTokenizer, args.decoder_name, ".cache/AutoTokenizer.pt")
     tokenizer.pad_token = PAD_TOKEN
     tokenizer.eos_token = EOS_TOKEN
 
@@ -70,13 +94,13 @@ def get_model_and_auxiliaries(args):
 
 
 def get_data(tokenizer, max_length, args):
-    # data = load_data_for_training_v1(args.annotations_path, args.captions_path)
-    data = load_data_for_training_v2(args.annotations_path, args.retrieved_caps_path)
+    data = load_data_for_training_v1(args.annotations_path, args.captions_path)
+    # data = load_data_for_training_v2(args.annotations_path, args.retrieved_caps_path)
     train_df = pd.DataFrame(data['train'])
 
-    train_dataset = TrainDataset(
+    train_dataset = TrainDataset_v2(
         df=train_df,
-        features_path=os.path.join(args.features_dir, 'train.hdf5'),
+        features_path=os.path.join(args.features_dir, 'coco_cdn.hdf5'),
         tokenizer=tokenizer,
         rag=not args.disable_rag,
         template_path=args.template_path,
@@ -95,9 +119,16 @@ def main(args):
     train_dataset = get_data(tokenizer, model.config.max_length, args)
 
     model_type = 'norag' if args.disable_rag else 'rag'
-    output_dir = '{}_{}M_{}'.format(model_type, args.attention_size, args.decoder_name)
+    if args.resume_cpt is None:
+        output_dir = 'exp_{}'.format(time.strftime("%m%d-%H%M", time.localtime()))
+        output_dir = os.path.join(args.experiments_dir, output_dir)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+    else:
+        output_dir = args.resume_cpt
 
-    output_dir = os.path.join(args.experiments_dir, output_dir)
+    with open(os.path.join(output_dir, 'args.json'), 'w') as f:
+        json.dump(vars(args), f, indent=4)
 
     training_args = Seq2SeqTrainingArguments(
         num_train_epochs=args.n_epochs,
@@ -106,10 +137,13 @@ def main(args):
         learning_rate=args.lr,
         fp16=True,
         save_strategy="epoch",
-        save_total_limit=args.n_epochs,
+        # save_strategy="steps",
+        # save_steps=1,
+        # save_total_limit=args.n_epochs,
         logging_strategy="epoch",
         output_dir=output_dir,
         overwrite_output_dir=True,
+        # resume_from_checkpoint=args.resume_cpt,
     )
 
     trainer = Seq2SeqTrainer(
@@ -119,8 +153,9 @@ def main(args):
         train_dataset=train_dataset,
         tokenizer=feature_extractor,
     )
-
-    trainer.train()
+    trainer.add_callback(InferenceCallback)
+    trainer.train()  # todo: whether to resume from checkpoint
+    # trainer.train(resume_from_checkpoint=args.resume_cpt)
 
 
 if __name__ == '__main__':
@@ -140,7 +175,7 @@ if __name__ == '__main__':
     parser.add_argument("--captions_path", type=str, default="data/retrieved_caps_resnet50x64.json", help="JSON file with retrieved captions")
     parser.add_argument("--template_path", type=str, default="src/template.txt", help="TXT file with template")
 
-    parser.add_argument("--n_epochs", type=int, default=10, help="Number of training epochs")
+    parser.add_argument("--n_epochs", type=int, default=20, help="Number of training epochs")
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
     parser.add_argument("--batch_size", "-b", type=int, default=64, help="Batch size")  # todo: when k=9, batch_size should be smaller. Because
     parser.add_argument("--gradient_steps", type=int, default=1, help="Number of gradient accumulation steps")
@@ -148,7 +183,4 @@ if __name__ == '__main__':
     parser.add_argument("--local_rank", type=int, default=-1, help="Local rank for distributed training (-1: not distributed)")
 
     parser.add_argument("--retrieved_caps_path", type=str, default="data/coco2017_crop_caps.hdf5")
-
-    args = parser.parse_args()
-
-    main(args)
+    parser.add_argument("--resume_cpt", type=str, default=None, help="Path to checkpoint to resume training from or leave None to train from scratch")

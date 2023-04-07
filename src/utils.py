@@ -13,6 +13,26 @@ SIMPLE_PREFIX = "This image shows "
 import os
 
 
+def load_huggingface_model(model_class, model_name, local_file, return_any=None, *model_args, **model_kwargs):
+    if return_any is None:
+        return_any = {}
+    if os.path.exists(local_file):
+        print(f"Loading {model_class} from local file {local_file}")
+        model = model_class.from_pretrained(local_file, *model_args, **model_kwargs)
+    else:
+        print(f"Loading {model_class} from huggingface model {model_name}")
+        model = model_class.from_pretrained(model_name, *model_args, **model_kwargs)
+        model.save_pretrained(local_file)
+        print(f"Saved {model_class} to local file {local_file}")
+    if return_any.get("return_tokenizer", None) == True:
+        return model.tokenizer
+    elif return_any.get("return_feature_extractor", None) == True:
+        return model.feature_extractor
+    elif return_any.get("return_vision_model", None) == True:
+        return model.vision_model
+    return model
+
+
 def prep_strings(text, tokenizer, template=None, retrieved_caps=None, k=None, is_test=False, max_length=None):
     if is_test:
         padding = False
@@ -82,6 +102,40 @@ class TrainDataset(Dataset):
             decoder_input_ids, labels = prep_strings(text, self.tokenizer, max_length=self.max_target_length)
         # load precomputed features
         encoder_outputs = self.features[self.df['cocoid'][idx]][()]
+        encoding = {"encoder_outputs": torch.tensor(encoder_outputs),
+                    "decoder_input_ids": torch.tensor(decoder_input_ids),
+                    "labels": torch.tensor(labels)}
+
+        return encoding
+
+
+class TrainDataset_v2(Dataset):
+    def __init__(self, df, features_path, tokenizer, rag=False, template_path=None, k=None, max_target_length=150):
+        self.df = df
+        self.tokenizer = tokenizer
+        self.max_target_length = max_target_length
+        self.features = h5py.File(features_path, 'r')
+
+        if rag:
+            self.template = open(template_path).read().strip() + ' '
+            assert k is not None
+            self.k = k
+        self.rag = rag
+
+    def __len__(self):
+        return len(self.df)
+
+    def __getitem__(self, idx):
+        text = self.df['text'][idx]
+        if self.rag:
+            caps = self.df['caps'][idx]
+            decoder_input_ids, labels = prep_strings(text, self.tokenizer, template=self.template,
+                                                     retrieved_caps=caps, k=self.k, max_length=self.max_target_length)
+        else:
+            decoder_input_ids, labels = prep_strings(text, self.tokenizer, max_length=self.max_target_length)
+        # here encoder_outputs' shape is [100,1024] which is extracted from CDN. The original encoder_outputs' shape is [50, 768]
+        encoder_outputs = self.features[self.df['cocoid'][idx].zfill(12)]['final_out'][()].squeeze()  # I truncate the shape to [100, 768] from [100, 1024]
+        # encoder_outputs = self.features[self.df['cocoid'][idx].zfill(12)]['final_out'][()].squeeze()[:, :768] # I truncate the shape to [100, 768] from [100, 1024]
         encoding = {"encoder_outputs": torch.tensor(encoder_outputs),
                     "decoder_input_ids": torch.tensor(decoder_input_ids),
                     "labels": torch.tensor(labels)}
