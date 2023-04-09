@@ -211,9 +211,9 @@ class SmallCap(PreTrainedModel):
         self.encoder.main_input_name = 'pixel_values'
         self.decoder = decoder
         self.linear1024to768 = nn.Linear(1024, 768)
-        # init.xavier_uniform_(self.linear1024to768.weight)
-        # init.constant_(self.linear1024to768.bias, 0.0)
-        # self.relu = nn.ReLU()
+        init.xavier_uniform_(self.linear1024to768.weight)
+        init.constant_(self.linear1024to768.bias, 0.0)
+        self.relu = nn.ReLU()
 
         # make sure that the individual model's config refers to the shared config
         # so that the updates to the config will be synced
@@ -478,7 +478,7 @@ class SmallCap(PreTrainedModel):
                 labels, self.config.pad_token_id, self.config.decoder_start_token_id
             )
         encoder_hidden_states = self.linear1024to768(encoder_hidden_states)
-        # encoder_hidden_states = self.relu(encoder_hidden_states)
+        encoder_hidden_states = self.relu(encoder_hidden_states)
 
         # Decode
         decoder_outputs = self.decoder(

@@ -31,10 +31,10 @@ class InferenceCallback(TrainerCallback):
     #     print("saved one: ", saved_one)
     #     subprocess.run(["bash", "infer_eval.sh", str(saved_one)])
 
-    def on_save(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
-        saved_one = state.global_step
-        print("saved one: ", saved_one)
-        subprocess.run(["bash", "infer_eval.sh", str(saved_one)])
+    # def on_save(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
+    #     saved_one = state.global_step
+    #     print("saved one: ", saved_one)
+    #     subprocess.run(["bash", "infer_eval.sh", str(saved_one)])
 
     # def on_step_end(self, args: TrainingArguments, state: TrainerState, control: TrainerControl, **kwargs):
     #     pass
@@ -94,8 +94,8 @@ def get_model_and_auxiliaries(args):
 
 
 def get_data(tokenizer, max_length, args):
-    data = load_data_for_training_v1(args.annotations_path, args.captions_path)
-    # data = load_data_for_training_v2(args.annotations_path, args.retrieved_caps_path)
+    # data = load_data_for_training_v1(args.annotations_path, args.captions_path) # todo: whether to use the original retrieve caps or not
+    data = load_data_for_training_v2(args.annotations_path, args.retrieved_caps_path)
     train_df = pd.DataFrame(data['train'])
 
     train_dataset = TrainDataset_v2(
@@ -170,12 +170,12 @@ if __name__ == '__main__':
     parser.add_argument("--train_decoder", action="store_true", default=False, help="Whether to train the decoder in addition to the attention")
 
     parser.add_argument("--disable_rag", action="store_true", default=False, help="Disable retrieval augmentation")
-    parser.add_argument("--k", type=int, default=4, help="Number of retrieved captions to use in prefix")  # todo: it should be set to 9 when training with block-splited retrieved captions
+    parser.add_argument("--k", type=int, default=9, help="Number of retrieved captions to use in prefix")  # todo: it should be set to 9 when training with block-splited retrieved captions
     parser.add_argument("--retrieval_encoder", type=str, default="RN50x64", help="Visual encoder used for retieving captions")
     parser.add_argument("--captions_path", type=str, default="data/retrieved_caps_resnet50x64.json", help="JSON file with retrieved captions")
     parser.add_argument("--template_path", type=str, default="src/template.txt", help="TXT file with template")
 
-    parser.add_argument("--n_epochs", type=int, default=20, help="Number of training epochs")
+    parser.add_argument("--n_epochs", type=int, default=10, help="Number of training epochs")
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
     parser.add_argument("--batch_size", "-b", type=int, default=64, help="Batch size")  # todo: when k=9, batch_size should be smaller. Because
     parser.add_argument("--gradient_steps", type=int, default=1, help="Number of gradient accumulation steps")
@@ -184,3 +184,6 @@ if __name__ == '__main__':
 
     parser.add_argument("--retrieved_caps_path", type=str, default="data/coco2017_crop_caps.hdf5")
     parser.add_argument("--resume_cpt", type=str, default=None, help="Path to checkpoint to resume training from or leave None to train from scratch")
+    args = parser.parse_args()
+
+    main(args)

@@ -135,8 +135,8 @@ def main(args):
     else:
         split = 'val'
 
-    data = load_data_for_inference(args.annotations_path, args.captions_path)
-    # data = load_data_for_inference_v2(args.annotations_path, args.retrieved_caps_path)
+    # data = load_data_for_inference(args.annotations_path, args.captions_path) # todo: whether you are using the original retrieved_cap or not
+    data = load_data_for_inference_v2(args.annotations_path, args.retrieved_caps_path)
 
     eval_df = pd.DataFrame(data[split])
     args.outfile_name = '{}_preds.json'.format(split)
@@ -178,7 +178,7 @@ if __name__ == '__main__':
     parser.add_argument("--decoder_name", type=str, default="gpt2", help="Decoder name as found of HuggingFace or stored locally")
 
     parser.add_argument("--disable_rag", action="store_true", default=False, help="Disable retrieval augmentation or not")
-    parser.add_argument("--k", type=int, default=4, help="Number of retrieved captions to use in prefix")
+    parser.add_argument("--k", type=int, default=9, help="Number of retrieved captions to use in prefix")  # todo: whether to use 9 blocks retrieved caps or not. The original param is 4
     parser.add_argument("--retrieval_encoder", type=str, default="RN50x64", help="Visual encoder used for retieving captions")
     parser.add_argument("--captions_path", type=str, default="data/retrieved_caps_resnet50x64.json", help="JSON file with retrieved captions")
     parser.add_argument("--template_path", type=str, default="src/template.txt", help="TXT file with template")
