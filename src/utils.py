@@ -171,8 +171,11 @@ def load_data_for_training_v2(annot_path, caps_path):
     retrieved_caps_handler = h5py.File(caps_path, 'r')
 
     data = {'train': [], 'val': []}
+    # get the caps_path's name
+    caps_name = Path(caps_path).stem
 
-    if not os.path.exists('data/train.json'):
+    if not os.path.exists(f'data/train_{caps_name}.json'):
+        print("not found retrieved caption json, collecting data...")
         for item in annotations:
             file_name = item['filename'].split('_')[-1][:-4]
             caps = retrieved_caps_handler[file_name]['nine']['texts'][()]
@@ -186,14 +189,15 @@ def load_data_for_training_v2(annot_path, caps_path):
                 data['val'] += samples
 
         # put data to json
-        with open('data/train.json', 'w') as f:
+        with open(f'data/train_{caps_name}.json', 'w') as f:
             json.dump(data, f)
 
         retrieved_caps_handler.close()
 
         return data
     else:
-        with open('data/train.json', 'r') as f:
+        print("found retrieved caption json, loading data...")
+        with open(f'data/train_{caps_name}.json', 'r') as f:
             data = json.load(f)
 
         retrieved_caps_handler.close()
@@ -229,7 +233,9 @@ def load_data_for_inference_v2(annot_path, caps_path=None):
 
     data = {'test': [], 'val': []}
 
-    if not os.path.exists('data/test.json'):
+    caps_name = Path(caps_path).stem
+
+    if not os.path.exists(f'data/test_{caps_name}.json'):
         for item in annotations:
             file_name = item['filename'].split('_')[-1][:-4]
             caps = retrieved_caps_handler[file_name]['nine']['texts'][()]
@@ -241,13 +247,13 @@ def load_data_for_inference_v2(annot_path, caps_path=None):
                 data['val'].append(image)
 
         # put data to json
-        with open('data/test.json', 'w') as f:
+        with open(f'data/test_{caps_name}.json', 'w') as f:
             json.dump(data, f)
 
         retrieved_caps_handler.close()
 
     else:
-        with open('data/test.json', 'r') as f:
+        with open(f'data/test_{caps_name}.json', 'r') as f:
             data = json.load(f)
 
         retrieved_caps_handler.close()

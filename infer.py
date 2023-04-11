@@ -185,7 +185,8 @@ if __name__ == '__main__':
 
     parser.add_argument("--batch_size", type=int, default=64, help="Batch size; only matter if evaluating a norag model")
 
-    parser.add_argument("--retrieved_caps_path", type=str, default="data/coco2017_crop_caps.hdf5")
+    parser.add_argument("--retrieved_caps_path", type=str, default="experiments/coco2017all_crop/coco2017_crop_long_caps.hdf5") # todo: the name is important
+    # parser.add_argument("--retrieved_caps_path", type=str, default="data/coco2017_crop_caps.hdf5")
 
     args = parser.parse_args()
 

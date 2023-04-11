@@ -71,7 +71,7 @@ def get_model_and_auxiliaries(args):
     if not args.disable_rag:
         model.config.k = args.k
         model.config.retrieval_encoder = args.retrieval_encoder
-        model.config.max_length = 4 * CAPTION_LENGTH + CAPTION_LENGTH + 18  # there are 18 tokens in the long prefix template. kuhn: I changed `4 * CAPTION_LENGTH` to `args.k * CAPTION_LENGTH `
+        model.config.max_length = 10 * CAPTION_LENGTH + CAPTION_LENGTH + 18  # there are 18 tokens in the long prefix template. kuhn: I changed `4 * CAPTION_LENGTH` to `args.k * CAPTION_LENGTH `
 
     else:
         model.config.max_length = CAPTION_LENGTH + 4  # there are 4 tokens in the short prefix template
@@ -177,12 +177,13 @@ if __name__ == '__main__':
 
     parser.add_argument("--n_epochs", type=int, default=10, help="Number of training epochs")
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
-    parser.add_argument("--batch_size", "-b", type=int, default=64, help="Batch size")  # todo: when k=9, batch_size should be smaller. Because
+    parser.add_argument("--batch_size", "-b", type=int, default=32, help="Batch size")  # todo: when k=9, batch_size should be smaller. Because
     parser.add_argument("--gradient_steps", type=int, default=1, help="Number of gradient accumulation steps")
 
     parser.add_argument("--local_rank", type=int, default=-1, help="Local rank for distributed training (-1: not distributed)")
 
-    parser.add_argument("--retrieved_caps_path", type=str, default="data/coco2017_crop_caps.hdf5")
+    # parser.add_argument("--retrieved_caps_path", type=str, default="data/coco2017_crop_caps.hdf5")  # todo: decide what retrieved caps to use. The name is important
+    parser.add_argument("--retrieved_caps_path", type=str, default="experiments/coco2017all_crop/coco2017_crop_long_caps.hdf5")  # todo: decide what retrieved caps to use. The name is important
     parser.add_argument("--resume_cpt", type=str, default=None, help="Path to checkpoint to resume training from or leave None to train from scratch")
     args = parser.parse_args()
 

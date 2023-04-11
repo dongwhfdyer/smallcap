@@ -1,3 +1,4 @@
+import itertools
 import json
 from pathlib import Path
 
@@ -10,6 +11,7 @@ import os
 import numpy as np
 from PIL import Image
 from PIL import ImageFile
+from torchvision.transforms import functional as F
 
 
 def load_huggingface_model(model_class, model_name, local_file, **kwargs):
@@ -102,6 +104,33 @@ def encode_captions(captions, model, device):
 
     return encoded_captions
 
+def five_crop(image, ratio=0.6):
+    w, h = image.size
+    hw = (h * ratio, w * ratio)
+
+    return F.five_crop(image, hw)
+
+def nine_crop(image, ratio=0.4):
+    w, h = image.size
+
+
+    t = (0, int((0.5 - ratio / 2) * h), int((1.0 - ratio) * h))
+    b = (int(ratio * h), int((0.5 + ratio / 2) * h), h)
+    l = (0, int((0.5 - ratio / 2) * w), int((1.0 - ratio) * w))
+    r = (int(ratio * w), int((0.5 + ratio / 2) * w), w)
+    h, w = list(zip(t, b)), list(zip(l, r))
+
+    images = []
+    for s in itertools.product(h, w):
+        h, w = s
+        top, left = h[0], w[0]
+        height, width = h[1] - h[0], w[1] - w[0]
+        images.append(F.crop(image, top, left, height, width))
+
+    return images
+
+
+
 
 def encode_images(images, image_path, model, feature_extractor, device):
     image_ids = [i['image_id'] for i in images]
@@ -110,7 +139,10 @@ def encode_images(images, image_path, model, feature_extractor, device):
     image_features = []
 
     for idx in tqdm(range(0, len(images), bs)):
-        image_input = [feature_extractor(Image.open(os.path.join(image_path, i['file_name'])))
+        img = Image.open(os.path.join(image_path, i['file_name']))
+        img_nine_crop = nine_crop(img)
+
+        image_input = [feature_extractor()
                        for i in images[idx:idx + bs]]
         with torch.no_grad():
             image_features.append(model.encode_image(torch.tensor(np.stack(image_input)).to(device)).cpu().numpy())
