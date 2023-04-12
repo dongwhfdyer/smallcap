@@ -71,7 +71,7 @@ def get_model_and_auxiliaries(args):
     if not args.disable_rag:
         model.config.k = args.k
         model.config.retrieval_encoder = args.retrieval_encoder
-        model.config.max_length = 10 * CAPTION_LENGTH + CAPTION_LENGTH + 18  # there are 18 tokens in the long prefix template. kuhn: I changed `4 * CAPTION_LENGTH` to `args.k * CAPTION_LENGTH `
+        model.config.max_length = args.k * CAPTION_LENGTH + CAPTION_LENGTH + 18  # there are 18 tokens in the long prefix template. kuhn: I changed `4 * CAPTION_LENGTH` to `args.k * CAPTION_LENGTH `
 
     else:
         model.config.max_length = CAPTION_LENGTH + 4  # there are 4 tokens in the short prefix template
@@ -94,8 +94,8 @@ def get_model_and_auxiliaries(args):
 
 
 def get_data(tokenizer, max_length, args):
-    # data = load_data_for_training_v1(args.annotations_path, args.captions_path) # todo: whether to use the original retrieve caps or not
-    data = load_data_for_training_v2(args.annotations_path, args.retrieved_caps_path)
+    data = load_data_for_training_v1(args.annotations_path, args.captions_path)  # todo: whether to use the original retrieve caps or not
+    # data = load_data_for_training_v2(args.annotations_path, args.retrieved_caps_path)
     train_df = pd.DataFrame(data['train'])
 
     train_dataset = TrainDataset_v2(
@@ -170,14 +170,14 @@ if __name__ == '__main__':
     parser.add_argument("--train_decoder", action="store_true", default=False, help="Whether to train the decoder in addition to the attention")
 
     parser.add_argument("--disable_rag", action="store_true", default=False, help="Disable retrieval augmentation")
-    parser.add_argument("--k", type=int, default=4, help="Number of retrieved captions to use in prefix")  # todo: it should be set to 9 when training with block-splited retrieved captions
+    parser.add_argument("--k", type=int, default=2, help="Number of retrieved captions to use in prefix")  # todo: it should be set to 9 when training with block-splited retrieved captions
     parser.add_argument("--retrieval_encoder", type=str, default="RN50x64", help="Visual encoder used for retieving captions")
     parser.add_argument("--captions_path", type=str, default="data/retrieved_caps_resnet50x64.json", help="JSON file with retrieved captions")
     parser.add_argument("--template_path", type=str, default="src/template.txt", help="TXT file with template")
 
     parser.add_argument("--n_epochs", type=int, default=10, help="Number of training epochs")
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
-    parser.add_argument("--batch_size", "-b", type=int, default=32, help="Batch size")  # todo: when k=9, batch_size should be smaller. Because
+    parser.add_argument("--batch_size", "-b", type=int, default=64, help="Batch size")  # todo: when k=9, batch_size should be smaller. Because
     parser.add_argument("--gradient_steps", type=int, default=1, help="Number of gradient accumulation steps")
 
     parser.add_argument("--local_rank", type=int, default=-1, help="Local rank for distributed training (-1: not distributed)")
