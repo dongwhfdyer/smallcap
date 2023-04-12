@@ -170,7 +170,7 @@ if __name__ == '__main__':
     parser.add_argument("--train_decoder", action="store_true", default=False, help="Whether to train the decoder in addition to the attention")
 
     parser.add_argument("--disable_rag", action="store_true", default=False, help="Disable retrieval augmentation")
-    parser.add_argument("--k", type=int, default=9, help="Number of retrieved captions to use in prefix")  # todo: it should be set to 9 when training with block-splited retrieved captions
+    parser.add_argument("--k", type=int, default=4, help="Number of retrieved captions to use in prefix")  # todo: it should be set to 9 when training with block-splited retrieved captions
     parser.add_argument("--retrieval_encoder", type=str, default="RN50x64", help="Visual encoder used for retieving captions")
     parser.add_argument("--captions_path", type=str, default="data/retrieved_caps_resnet50x64.json", help="JSON file with retrieved captions")
     parser.add_argument("--template_path", type=str, default="src/template.txt", help="TXT file with template")

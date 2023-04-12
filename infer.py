@@ -178,14 +178,14 @@ if __name__ == '__main__':
     parser.add_argument("--decoder_name", type=str, default="gpt2", help="Decoder name as found of HuggingFace or stored locally")
 
     parser.add_argument("--disable_rag", action="store_true", default=False, help="Disable retrieval augmentation or not")
-    parser.add_argument("--k", type=int, default=9, help="Number of retrieved captions to use in prefix")  # todo: whether to use 9 blocks retrieved caps or not. The original param is 4
+    parser.add_argument("--k", type=int, default=4, help="Number of retrieved captions to use in prefix")  # todo: whether to use 9 blocks retrieved caps or not. The original param is 4
     parser.add_argument("--retrieval_encoder", type=str, default="RN50x64", help="Visual encoder used for retieving captions")
     parser.add_argument("--captions_path", type=str, default="data/retrieved_caps_resnet50x64.json", help="JSON file with retrieved captions")
     parser.add_argument("--template_path", type=str, default="src/template.txt", help="TXT file with template")
 
-    parser.add_argument("--batch_size", type=int, default=64, help="Batch size; only matter if evaluating a norag model")
+    parser.add_argument("--batch_size", type=int, default=64, help="Batch size; only matter if evaluating a norag model")  # useless parameter
 
-    parser.add_argument("--retrieved_caps_path", type=str, default="experiments/coco2017all_crop/coco2017_crop_long_caps.hdf5") # todo: the name is important
+    parser.add_argument("--retrieved_caps_path", type=str, default="experiments/coco2017all_crop/coco2017_crop_long_caps.hdf5")  # todo: the name is important
     # parser.add_argument("--retrieved_caps_path", type=str, default="data/coco2017_crop_caps.hdf5")
 
     args = parser.parse_args()
