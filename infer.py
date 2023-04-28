@@ -135,7 +135,7 @@ def main(args):
     else:
         split = 'val'
 
-    data = load_data_for_inference(args.annotations_path, args.captions_path) # todo: whether you are using the original retrieved_cap or not
+    data = load_data_for_inference(args.dataset_name, args.dataset_settings)  # todo: whether you are using the original retrieved_cap or not
     # data = load_data_for_inference_v2(args.annotations_path, args.retrieved_caps_path)
 
     eval_df = pd.DataFrame(data[split])

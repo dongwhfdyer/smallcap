@@ -205,25 +205,67 @@ def load_data_for_training_v2(annot_path, caps_path):
         return data
 
 
-def load_data_for_inference(annot_path, caps_path=None):
-    annotations = json.load(open(annot_path))['images']
-    if caps_path is not None:
-        retrieved_caps = json.load(open(caps_path))
-    data = {'test': [], 'val': []}
+def load_data_for_inference(dataset_name, retrieved_source_name):
+    # read datasets_info.yaml file
+    yaml_path = 'datasets_info.yaml'
+    with open(yaml_path, 'r') as f:
+        datasets_info = yaml.load(f, Loader=yaml.FullLoader)
 
-    for item in annotations:
-        file_name = item['filename'].split('_')[-1]
+    def build_coco(annot_path, caps_path):
+        annotations = json.load(open(annot_path))['images']
         if caps_path is not None:
-            caps = retrieved_caps[str(item['cocoid'])]
-        else:
-            caps = None
-        image = {'file_name': file_name, 'caps': caps, 'image_id': str(item['cocoid'])}
-        if item['split'] == 'test':
-            data['test'].append(image)
-        elif item['split'] == 'val':
-            data['val'].append(image)
+            retrieved_caps = json.load(open(caps_path))
+        data = {'test': [], 'val': []}
 
-    return data
+        for item in annotations:
+            file_name = item['filename'].split('_')[-1]
+            if caps_path is not None:
+                caps = retrieved_caps[str(item['cocoid'])]
+            else:
+                caps = None
+            image = {'file_name': file_name, 'caps': caps, 'image_id': str(item['cocoid'])}
+            if item['split'] == 'test':
+                data['test'].append(image)
+            elif item['split'] == 'val':
+                data['val'].append(image)
+
+        return data
+
+    def build_flickr30k(annot_path, caps_path):
+        annotations = json.load(open(annot_path))['images']
+        if caps_path is not None:
+            retrieved_caps = json.load(open(caps_path))
+
+
+
+    def build_msr_vtt(annot_path, caps_path):
+        pass
+
+    def build_vizwiz(annot_path, caps_path):
+        pass
+
+    if dataset_name == 'coco':
+        annot_path = datasets_info['coco']['annotations_path']
+        caps_path = datasets_info['coco']['retrieved_caps_path']
+        return build_coco(annot_path, caps_path)
+
+    if dataset_name == 'flickr30k':
+        annot_path = datasets_info['flickr30k']['annotations_path']
+        caps_path = datasets_info['flickr30k']['retrieved_caps_path'][retrieved_source_name]
+        return build_flickr30k(annot_path, caps_path)
+
+    if dataset_name == 'msr_vtt':
+        annot_path = datasets_info['msr_vtt']['annotations_path']
+        caps_path = datasets_info['msr_vtt']['retrieved_caps_path'][retrieved_source_name]
+        return build_msr_vtt(annot_path, caps_path)
+
+    if dataset_name == 'vizwiz':
+        annot_path = datasets_info['vizwiz']['annotations_path']
+        caps_path = datasets_info['vizwiz']['retrieved_caps_path'][retrieved_source_name]
+        return build_vizwiz(annot_path, caps_path)
+
+    if dataset_name == 'nocaps':
+        raise NotImplementedError
 
 
 def load_data_for_inference_v2(annot_path, caps_path=None):

@@ -1,0 +1,41 @@
+coco:
+  annotations_path: data/dataset_coco.json
+  retrieved_caps_path: data/retrieved_caps_resnet50x64.json
+
+flickr30k:
+  annotations_path: data/_references/flickr30k/captions_test2014_new.json
+  retrieved_caps_path:
+    in_domain: data/_nns/flickr30k/setup_in_domain.json
+    in_domain_human_labeled: data/_nns/flickr30k/setup_in_domain_human_labeled.json
+    in_domain_web: data/_nns/flickr30k/setup_in_domain_web.json
+    in_domain_web_human_labeled: data/_nns/flickr30k/setup_in_domain_web_human_labeled.json
+    web: data/_nns/flickr30k/setup_web.json
+    web_human_labeled: data/_nns/flickr30k/setup_web_human_labeled.json
+
+msr_vtt:
+  annotations_path: data/_references/msr_vtt/captions_val2014_new.json
+  retrieved_caps_path:
+    in_domain: data/_nns/msr_vtt/setup_in_domain.json
+    in_domain_human_labeled: data/_nns/msr_vtt/setup_in_domain_human_labeled.json
+    in_domain_web: data/_nns/msr_vtt/setup_in_domain_web.json
+    in_domain_web_human_labeled: data/_nns/msr_vtt/setup_in_domain_web_human_labeled.json
+    web: data/_nns/msr_vtt/setup_web.json
+    web_human_labeled: data/_nns/msr_vtt/setup_web_human_labeled.json
+    human_labeled: data/_nns/msr_vtt/setup_human_labeled.json
+
+
+vizwiz:
+  annotations_path: data/_references/vizwiz/captions_val2014_new.json
+  retrieved_caps_path:
+    in_domain: data/_nns/vizwiz/setup_in_domain.json
+    in_domain_human_labeled: data/_nns/vizwiz/setup_in_domain_human_labeled.json
+    in_domain_web: data/_nns/vizwiz/setup_in_domain_web.json
+    in_domain_web_human_labeled: data/_nns/vizwiz/setup_in_domain_web_human_labeled.json
+    web: data/_nns/vizwiz/setup_web.json
+    web_human_labeled: data/_nns/vizwiz/setup_web_human_labeled.json
+    human_labeled: data/_nns/vizwiz/setup_human_labeled.json
+
+nocaps:
+  retrieved_caps_path:
+    in_domain: data/_nns/nocaps/setup_in_domain.json
+    in_domain_web_human_labeled: data/_nns/nocaps/setup_in_domain_web_human_labeled.json
